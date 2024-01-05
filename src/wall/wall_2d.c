@@ -23,13 +23,12 @@
  *
  * @param offload_data pointer to offload data struct
  * @param offload_array pointer to pointer to offload array
+ * @param int_offload_array pointer to pointer to integer offload array
  *
  * @return zero to indicate success
  */
 int wall_2d_init_offload(wall_2d_offload_data* offload_data,
-                         real** offload_array) {
-    // Do no initialization
-
+                         real** offload_array, int** int_offload_array) {
     int n = offload_data->n;
     real rmin = (*offload_array)[0], rmax = (*offload_array)[0];
     real zmin = (*offload_array)[n], zmax = (*offload_array)[n];
@@ -57,12 +56,14 @@ int wall_2d_init_offload(wall_2d_offload_data* offload_data,
  *
  * @param offload_data pointer to offload data struct
  * @param offload_array pointer to pointer to offload array
+ * @param int_offload_array pointer to pointer to integer offload array
  */
-
 void wall_2d_free_offload(wall_2d_offload_data* offload_data,
-                          real** offload_array) {
+                          real** offload_array, int** int_offload_array) {
     free(*offload_array);
     *offload_array = NULL;
+    free(*int_offload_array);
+    *int_offload_array = NULL;
 }
 
 /**
@@ -74,12 +75,14 @@ void wall_2d_free_offload(wall_2d_offload_data* offload_data,
  * @param w pointer to data struct on target
  * @param offload_data pointer to offload data struct
  * @param offload_array the offload array
+ * @param int_offload_array the integer offload array
  */
 void wall_2d_init(wall_2d_data* w, wall_2d_offload_data* offload_data,
-                  real* offload_array) {
+                  real* offload_array, int* int_offload_array) {
     w->n = offload_data->n;
     w->wall_r = &offload_array[0];
     w->wall_z = &offload_array[offload_data->n];
+    w->flag   = &int_offload_array[0];
 }
 
 /**
@@ -100,11 +103,14 @@ void wall_2d_init(wall_2d_data* w, wall_2d_offload_data* offload_data,
  */
 int wall_2d_inside(real r, real z, wall_2d_data* w) {
     int hits = 0;
-    for(int i = 0; i < w->n - 1; i++) {
-        real wz1 = w->wall_z[i] - z;
-        real wz2 = w->wall_z[i+1] - z;
-        real wr1 = w->wall_r[i] - r;
-        real wr2 = w->wall_r[i+1] - r;
+    for(int i = 0; i < w->n; i++) {
+        int i1 = i + 1;
+        if(i1==w->n) i1 = 0;
+
+        real wz1 = w->wall_z[i]  - z;
+        real wz2 = w->wall_z[i1] - z;
+        real wr1 = w->wall_r[i]  - r;
+        real wr2 = w->wall_r[i1] - r;
         if(wz1 * wz2 < 0) {
             real ri = wr1 + (wz1*(wr2-wr1)) / (wz1-wz2);
             if(ri > 0) {
@@ -131,11 +137,7 @@ int wall_2d_inside(real r, real z, wall_2d_data* w) {
  */
 int wall_2d_hit_wall(real r1, real phi1, real z1, real r2, real phi2, real z2,
                      wall_2d_data* w, real* w_coll) {
-    int tile = 0;
-    if(!wall_2d_inside(r2, z2, w)) {
-        tile = wall_2d_find_intersection(r1, z1, r2, z2, w, w_coll);
-    }
-    return tile;
+    return wall_2d_find_intersection(r1, z1, r2, z2, w, w_coll);
 }
 
 /**
@@ -158,11 +160,13 @@ int wall_2d_find_intersection(real r1, real z1, real r2, real z2,
                               wall_2d_data* w, real* w_coll) {
     int tile = 0;
     real t0 = 2.0; // Helper variable to pick the closest intersection
-    for(int i=0; i<w->n-1; i++) {
+    for(int i=0; i<w->n; i++) {
+        int i1 = i + 1;
+        if(i1==w->n) i1 = 0;
         real r3 = w->wall_r[i];
-        real r4 = w->wall_r[i+1];
+        real r4 = w->wall_r[i1];
         real z3 = w->wall_z[i];
-        real z4 = w->wall_z[i+1];
+        real z4 = w->wall_z[i1];
 
         real div = (r1 - r2) * (z3 - z4) - (z1 - z2) * (r3 - r4);
         real t = ( (r1 - r3) * (z3 - z4) - (z1 - z3) * (r3 - r4) );
