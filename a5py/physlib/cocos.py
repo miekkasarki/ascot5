@@ -100,6 +100,8 @@ def assign(q, ip, b0, psiaxis, psibndr, phiclockwise, weberperrad):
     weberperrad : bool
         If True, the poloidal flux is not in Webers but Wb/rad (divided by 2pi).
 
+        True for COCOS ID 1-8. False for COCOS ID 11-18.
+
     Returns
     -------
     cocos : int
@@ -141,7 +143,7 @@ def assign(q, ip, b0, psiaxis, psibndr, phiclockwise, weberperrad):
     if len(cocos) > 1:
         raise ValueError("Could not determine COCOS")
     cocos = cocos.pop()
-    if weberperrad:
+    if not weberperrad: # COCOS ID 11-18 are NOT divided by 2*pi.
         cocos += 10
     return cocos
 
@@ -215,7 +217,7 @@ def transform_cocos(cc_in, cc_out, sigma_Ip=None, sigma_B0=None, ld=(1,1),
     return transforms
 
 def fromCocosNtoCocosM(eqd, cocos_m, cocos_n=None, phiclockwise=None,
-                       weberperrad=None):
+                       weberperrad=True):
     """Transform equilibrium from cocos_n to cocos_m.
 
     Parameters
@@ -225,14 +227,14 @@ def fromCocosNtoCocosM(eqd, cocos_m, cocos_n=None, phiclockwise=None,
     cocos_m : int
         Target COCOS.
     cocos_n : int
-        Assume EQDSK has this COCOS instead of interpreting it from the data.
+        Input COCOS.
 
     Returns
     -------
     eqdout : dict
         Equilibrium data converted to cocos_m.
     """
-    if not cocos_n:
+    if not cocos_n: # If None, determine from G-EQDSK data
         cocos_n = assign(eqd["qpsi"][0], eqd["cpasma"], eqd["bcentr"],
                          eqd["simagx"], eqd["sibdry"], phiclockwise,
                          weberperrad)

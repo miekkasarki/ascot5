@@ -15,7 +15,6 @@ try:
     import matplotlib.pyplot as plt
     import mpl_toolkits
     from mpl_toolkits.axes_grid1 import make_axes_locatable
-
 except ImportError:
     warnings.warn("Could not import matplotlib. Plotting disabled.")
     plt = None
@@ -25,17 +24,25 @@ try:
     import pyvista as pv
 except ImportError:
     warnings.warn("Could not import pyvista. 3D wall plotting disabled.")
+    pv = None
 
 from functools import wraps
 
-def setpaperstyle(height=5, halfpage=False):
-    """TODO make this style suitable for publications
+def setpaperstyle(latex=True):
+    """Set default figure settings (label sizes etc.) so that the figure is
+    suitable for publications (looks nice on A4).
+
+    This function modifies the matplotlib style settings so one call is changes
+    the style for the entire session.
+
+    Parameters
+    ----------
+    latex : bool, optional
+        Use LaTex interpreter.
     """
     mpl.style.use({
         "figure.autolayout":False,
         "font.family":"serif",
-        "font.serif":"ComputerModern",
-        "text.usetex":True,
         "pdf.fonttype":42,
         "ps.fonttype":42,
         "axes.labelsize":14,
@@ -58,17 +65,30 @@ def setpaperstyle(height=5, halfpage=False):
         "ytick.minor.width":0.4,
         "xtick.major.pad":5.6,
         "ytick.major.pad":5.6,
-        "axes.formatter.limits":[-1,1]
+        "savefig.dpi":300,
+        "axes.formatter.limits":[-2,2]
     })
+    if latex:
+        mpl.style.use({
+            "font.serif":"ComputerModern",
+            "text.usetex":True,
+        })
 
-def setguistyle():
-    """Style used in GUI.
+def setguistyle(latex=True):
+    """Set default figure settings (label sizes etc.) so that the figure is
+    suitable for GUI and presentations (large labels).
+
+    This function modifies the matplotlib style settings so one call is changes
+    the style for the entire session.
+
+    Parameters
+    ----------
+    latex : bool, optional
+        Use LaTex interpreter.
     """
     mpl.style.use({
         "figure.autolayout":False,
         "font.family":"serif",
-        "font.serif":"ComputerModern",
-        "text.usetex":True,
         "axes.labelsize":18,
         "axes.titlesize":18,
         "axes.titlepad":12,
@@ -89,7 +109,14 @@ def setguistyle():
         "ytick.minor.width":0.4,
         "xtick.major.pad":5.6,
         "ytick.major.pad":5.6,
+        "savefig.dpi":300,
+        "axes.formatter.limits":[-2,2]
     })
+    if latex:
+        mpl.style.use({
+            "font.serif":"ComputerModern",
+            "text.usetex":True,
+        })
 
 def figuresinglecolumn(aspectratio=3/2):
     """Return figure that has a size suitable for printing in A4 single-column
@@ -144,6 +171,38 @@ def openfigureifnoaxes(projection="rectilinear"):
         return wrapper
 
     return actualdecorator
+
+def getmathtextsciformatter(format):
+    """Returns a label tick formatter that shows numbers in format "a x 10^b".
+
+    Credit: https://stackoverflow.com/a/49330649
+
+    Examples
+    --------
+    >>> plt.gca().yaxis.set_major_formatter(getmathtextsciformatter("%1.2e"))
+    """
+    class MathTextSciFormatter(mpl.ticker.Formatter):
+
+        def __init__(self, format="%1.2e"):
+            self.fmt = format
+
+        def __call__(self, x, pos=None):
+            s = self.fmt % x
+            decimal_point = '.'
+            positive_sign = '+'
+            tup = s.split('e')
+            significand = tup[0].rstrip(decimal_point)
+            sign = tup[1][0].replace(positive_sign, '')
+            exponent = tup[1][1:].lstrip('0')
+            if exponent:
+                exponent = '10^{%s%s}' % (sign, exponent)
+            if significand and exponent:
+                s =  r'%s{\times}%s' % (significand, exponent)
+            else:
+                s =  r'%s%s' % (significand, exponent)
+            return "${}$".format(s)
+
+    return MathTextSciFormatter(format)
 
 @openfigureifnoaxes(projection=None)
 def scatter2d(x, y, c=None, xlog="linear", ylog="linear", clog="linear",
@@ -228,7 +287,7 @@ def scatter2d(x, y, c=None, xlog="linear", ylog="linear", clog="linear",
     norm = mpl.colors.BoundaryNorm(cint, nc)
     smap = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
     cbar = plt.colorbar(smap, ax=axes, cax=cax)
-    ticks = [];
+    ticks = []
     for b in cint.v:
         log = np.floor(np.log10(np.abs(b)))
         mul = b / 10**log
@@ -331,7 +390,7 @@ def scatter3d(x, y, z, c=None, xlog="linear", ylog="linear", zlog="linear",
     smap = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
     cbar = plt.colorbar(smap, ax=axes, cax=cax)
 
-    ticks = [];
+    ticks = []
     for b in cint.v:
         log = np.floor(np.log10(np.abs(b)))
         mul = b / 10**log
@@ -738,7 +797,8 @@ def line3d(x, y, z, c=None, xlog="linear", ylog="linear", zlog="linear",
 
 @openfigureifnoaxes(projection=None)
 def poincare(x, y, ids, connlen=None, xlim=None, ylim=None, xlabel=None,
-             ylabel=None, clabel=None, axesequal=False, axes=None, cax=None):
+             ylabel=None, clabel=None, axesequal=False, markersize=2,
+             axes=None, cax=None):
     """Poincaré plot where color separates markers or shows the connection
     length.
 
@@ -771,6 +831,10 @@ def poincare(x, y, ids, connlen=None, xlim=None, ylim=None, xlabel=None,
         Label for the y-axis.
     clabel : str, optional
         Label for the color axis.
+    axesequal : bool, optional
+        If True, x and y axis have equal aspect ratio.
+    markersize : int, optional
+        Marker size on plot.
     axes : :obj:`~matplotlib.axes.Axes`, optional
         The axes where figure is plotted or otherwise new figure is created.
     cax : :obj:`~matplotlib.axes.Axes`, optional
@@ -792,7 +856,7 @@ def poincare(x, y, ids, connlen=None, xlim=None, ylim=None, xlabel=None,
         for i in range(nc):
             idx = np.in1d(ids, uids[i::nc])
             axes.plot(x[idx], y[idx], color=cmap(cpick[i]/nc),
-                      linestyle="None", marker=".", markersize=1)
+                      linestyle="None", marker=".", markersize=markersize)
 
     else:
         # Sort by connection length (confined markers are indicated with a
@@ -865,7 +929,7 @@ def poincare(x, y, ids, connlen=None, xlim=None, ylim=None, xlabel=None,
         for i in range(nc_b):
             i2 = idx[i+1]
             axes.plot(x[i1:i2], y[i1:i2], color=colours[i],
-                      linestyle="None", marker="o", markersize=1)
+                      linestyle="None", marker="o", markersize=markersize)
             i1 = i2
 
         # Plot confined
@@ -875,7 +939,7 @@ def poincare(x, y, ids, connlen=None, xlim=None, ylim=None, xlabel=None,
         for i in range(nc):
             idx = np.in1d(ids, uids[i::nc])
             axes.plot(x[idx], y[idx], color=colours[nc_b+cpick[i]],
-                      linestyle="None", marker=".", markersize=1)
+                      linestyle="None", marker=".", markersize=markersize)
 
     axes.set_xlabel(xlabel)
     axes.set_ylabel(ylabel)
@@ -886,7 +950,7 @@ def poincare(x, y, ids, connlen=None, xlim=None, ylim=None, xlabel=None,
         axes.set_aspect("equal", adjustable="box")
 
 @openfigureifnoaxes(projection=None)
-def still(wallmesh, points=None, orbit=None, data=None, log=False,
+def still(wallmesh, points=None, orbit=None, data=None, log=False, clim=None,
           cpos=None, cfoc=None, cang=None, axes=None, cax=None, **kwargs):
     """Take a still shot of the mesh and display it using matplotlib backend.
 
@@ -906,6 +970,10 @@ def still(wallmesh, points=None, orbit=None, data=None, log=False,
         Cartesian coordinates for an orbit to be plotted.
     data : str, optional
         Name of the cell data in the wall mesh that is shown in color.
+    log : bool, optional
+        Color range is logarithmic if True.
+    clim : [float, float], optional
+        Color [min, max] limits.
     cpos : array_like, optional
         Camera position coordinates [x, y, z].
     cfoc : array_like, optional
@@ -922,14 +990,18 @@ def still(wallmesh, points=None, orbit=None, data=None, log=False,
     p = pv.Plotter(off_screen=True, **kwargs)
     if data is None:
         p.add_mesh(wallmesh, color=[0.9,0.9,0.9])
+        clim = None
     else:
         cmap = mpl.colormaps["Reds"].copy()
         cmap.set_bad(color=[0.9,0.9,0.9])
-        p.add_mesh(wallmesh, scalars=data, cmap=cmap, log_scale=log)
-        p.remove_scalar_bar()
-
         maxval = np.nanmax(wallmesh.cell_data[data])
         minval = np.nanmin(wallmesh.cell_data[data])
+        if clim is None: clim = [minval, maxval]
+        if clim[0] is None: clim[0] = minval
+        if clim[1] is None: clim[1] = maxval
+
+        p.add_mesh(wallmesh, scalars=data, cmap=cmap, clim=clim, log_scale=log)
+        p.remove_scalar_bar()
 
     if points is not None:
         p.theme.color = 'black'
@@ -956,9 +1028,9 @@ def still(wallmesh, points=None, orbit=None, data=None, log=False,
 
     if data is not None:
         if log:
-            norm = mpl.colors.LogNorm(vmin=minval, vmax=maxval)
+            norm = mpl.colors.LogNorm(vmin=clim[0], vmax=clim[1])
         else:
-            norm = mpl.colors.Normalize(vmin=0, vmax=maxval)
+            norm = mpl.colors.Normalize(vmin=clim[0], vmax=clim[1])
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = plt.colorbar(sm, ax=axes, cax=cax)
 
@@ -967,7 +1039,7 @@ def still(wallmesh, points=None, orbit=None, data=None, log=False,
 
 
 def interactive(wallmesh, *args, points=None, orbit=None, data=None, log=False,
-                cpos=None, cfoc=None, cang=None, **kwargs):
+                clim=None, cpos=None, cfoc=None, cang=None, **kwargs):
     """Open VTK window to display interactive view of the wall mesh.
 
     Parameters
@@ -985,6 +1057,10 @@ def interactive(wallmesh, *args, points=None, orbit=None, data=None, log=False,
         Cartesian coordinates for an orbit to be plotted.
     data : str, optional
         Name of the cell data in the wall mesh that is shown in color.
+    log : bool, optional
+        Color range is logarithmic if True.
+    clim : [float, float], optional
+        Color [min, max] limits.
     cpos : array_like, optional
         Camera position coordinates [x, y, z].
     cfoc : array_like, optional
@@ -1001,7 +1077,12 @@ def interactive(wallmesh, *args, points=None, orbit=None, data=None, log=False,
     else:
         cmap = mpl.colormaps["Reds"].copy()
         cmap.set_bad(color=[0.9,0.9,0.9])
-        p.add_mesh(wallmesh, scalars=data, cmap=cmap, log_scale=log)
+        maxval = np.nanmax(wallmesh.cell_data[data])
+        minval = np.nanmin(wallmesh.cell_data[data])
+        if clim is None: clim = [minval, maxval]
+        if clim[0] is None: clim[0] = minval
+        if clim[1] is None: clim[1] = maxval
+        p.add_mesh(wallmesh, scalars=data, cmap=cmap, clim=clim, log_scale=log)
 
     if points is not None:
         p.theme.color = 'black'
@@ -1112,6 +1193,136 @@ def momentumpolargrid(pnorm_edges, pitch_edges, axes=None):
     p = pnorm_edges[-1]
     for v in pitch_edges:
         axes.plot([0, v*p], [0, np.sqrt(1.0 - v**2)*p], color="black")
+
+@openfigureifnoaxes(projection=None)
+def radialprofile(x, y1, y2=None, xlim=None, y1lim=None, y2lim=None,
+                  xlabel=None, y1label=None, y2label=None, y1legends=None,
+                  y2legends=None, axes=None):
+    """Plot 1D profiles on axes that can have two y-axes and the y-axis combines
+    both linear and logarithmic scale.
+
+    Parameters
+    ----------
+    x : array_like, (n,)
+        The x grid where ``y1`` (and ``y2``) values are provided.
+    y1 : array_like or [array_like]
+        The values (or a list of values in which case they are separated by
+        colour) plotted on the left y-axis.
+    y2 : array_like or [array_like], optional
+        The values (or a list of values) plotted on the right y-axis.
+    xlim : [float, float], optional
+        Limits on x-axis.
+    y1lim : [float, float, float], optional
+        Limits on the first y axis where the middle value is when the scale
+        changes from logarithmic to linear.
+    y2lim : [float, float, float], optional
+        Limits on the second y axis where the middle value is when the scale
+        changes from logarithmic to linear.
+    xlabel : str, optional
+        Label on the x-axis.
+    y1label : str, optional
+        Label on the first y-axis.
+    y2label : str, optional
+        Label on the second y-axis.
+    y1legends: [str], optional
+        Legends for the values plotted on the first y-axis.
+
+        Number of legend values must be the same as the number of ``y1``.
+    y2legends: [str], optional
+        Legends for the values plotted on the second y-axis.
+
+        Number of legend values must be the same as the number of ``y2``.
+    axes : :obj:`~matplotlib.axes.Axes`, optional
+        The axes where figure is plotted or otherwise new figure is created.
+    """
+    if y1lim is None: raise ValueError("y1lim must be provided")
+    if xlim is not None: axes.set_xlim(xlim)
+
+    # Create linear left axis
+    axleftlin = axes
+    axleftlin.set_yscale('linear')
+    axleftlin.spines['right'].set_visible(False)
+    axleftlin.spines['bottom'].set_visible(False)
+    # Create log left axis
+    divider = make_axes_locatable(axes)
+    axleftlog = divider.append_axes('bottom', size=1.0, pad=0, sharex=axes)
+    axleftlog.set_yscale('log')
+    axleftlog.spines['right'].set_visible(False)
+    axleftlog.spines['top'].set_visible(False)
+    axleftlog.yaxis.set_ticks_position('left')
+
+    axleftlog.tick_params(axis='y', which='minor', left=False)
+    axleftlin.yaxis.set_major_formatter(getmathtextsciformatter("%1.0e"))
+
+    axleftlog.set_xlabel(xlabel)
+    plt.setp(axleftlin.get_xticklabels(), visible=False)
+
+    if y2 is not None:
+        # Create linear right axis
+        axrightlin = axes.twinx()
+        axrightlin.set_yscale('linear')
+        axrightlin.spines['left'].set_visible(False)
+        axrightlin.spines['bottom'].set_visible(False)
+
+        # Create log right axis
+        divider = make_axes_locatable(axrightlin)
+        axrightlog = divider.append_axes("bottom", size=1.0, pad=0, sharex=axes)
+        axrightlog.set_yscale('log')
+        axrightlog.spines['left'].set_visible(False)
+        axrightlog.spines['top'].set_visible(False)
+        axrightlog.yaxis.set_ticks_position('right')
+        axrightlog.xaxis.set_visible(False)
+        axrightlog.set_facecolor('none')
+        axrightlog.yaxis.set_label_position("right")
+
+        axrightlog.tick_params(axis='y', which='minor', right=False)
+        axrightlin.yaxis.set_major_formatter(getmathtextsciformatter("%1.0e"))
+
+        axlin      = axrightlin
+        axrightlin = axleftlin
+        axleftlin  = axlin
+        axlog      = axrightlog
+        axrightlog = axleftlog
+        axleftlog  = axlog
+
+        axrightlin.set_ylim((y2lim[1], y2lim[2]))
+        axrightlog.set_ylim((y2lim[0], y2lim[1]))
+        axrightlin.set_ylabel(y2label, loc='bottom')
+
+        axrightlin.spines['right'].set_color('C3')
+        axrightlog.spines['right'].set_color('C3')
+        axrightlin.tick_params(axis='y', colors='C3')
+        axrightlog.tick_params(axis='y', colors='C3')
+        axrightlin.yaxis.label.set_color('C3')
+
+        if not isinstance(y2, list): y2 = [y2]
+        handles2 = []
+        for i, y in enumerate(y2):
+            ls = '-' if i == 0 else '--'
+            h, = axrightlin.plot(x, y, color='C3', ls=ls)
+            axrightlog.plot(x, y, color='C3', ls=ls)
+            handles2.append(h)
+        axrightlog.set_xlim(xlim)
+
+        legend2 = plt.legend(handles2, y2legends, loc='upper left',
+                             bbox_to_anchor=(0.0,1.0), frameon=False)
+        axleftlog.add_artist(legend2)
+
+    axleftlin.set_ylabel(y1label, loc='bottom')
+    axleftlin.set_ylim((y1lim[1], y1lim[2]))
+    axleftlog.set_ylim((y1lim[0], y1lim[1]))
+
+    if not isinstance(y1, list): y1 = [y1]
+    handles1 = []
+    for i, y in enumerate(y1):
+        ls = '-' if i == 0 else '--'
+        c = 'C'+str(i) if i < 3 else 'C'+str(i+1)
+        axleftlin.plot(x, y, ls=ls, color=c)
+        h, = axleftlog.plot(x, y, ls=ls, color=c)
+        handles1.append(h)
+    legend1 = plt.legend(handles1, y1legends, loc='upper left',
+                         bbox_to_anchor=(0.6,3.1), frameon=False)
+    axleftlog.add_artist(legend1)
 
 def defaultcamera(wallmesh):
     """Get default camera (helper function for the 3D plots).

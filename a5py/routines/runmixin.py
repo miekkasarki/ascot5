@@ -354,8 +354,8 @@ class RunMixin(DistMixin):
             qnt = ["r", "phi", "z", "weight", "time", "vr", "vphi", "vz",
                    "mass", "charge", "anum", "znum"]
             state = self.getstate(*qnt, mode="prt", state="end", ids=ids)
-            for i in qnt:
-                mrk[i] = qnt[i]
+            for i, q in enumerate(qnt):
+                mrk[q] = state[i]
         elif mrktype == "gc":
             qnt = ["r", "phi", "z", "weight", "time", "ekin", "pitch", "zeta",
                    "mass", "charge", "anum", "znum"]
@@ -368,8 +368,8 @@ class RunMixin(DistMixin):
         elif mrktype == "fl":
             qnt = ["r", "phi", "z", "weight", "time", "pitch"]
             state = self.getstate(*qnt, mode="gc", state="end", ids=ids)
-            for i in qnt:
-                mrk[i] = qnt[i]
+            for i, q in enumerate(qnt):
+                mrk[q] = state[i]
         return mrk
 
     def getorbit_poincareplanes(self):
@@ -1247,7 +1247,8 @@ class RunMixin(DistMixin):
                          clabel=clabel, bbox=bbox, cmap=cmap,
                          axesequal=axesequal, axes=axes, cax=cax)
 
-    def plotorbit_poincare(self, plane, connlen=True, axes=None, cax=None):
+    def plotorbit_poincare(self, plane, connlen=True, markersize=2,
+                           axes=None, cax=None):
         """Create a Poincaré plot where the color separates different markers
         or shows the connection length.
 
@@ -1270,6 +1271,8 @@ class RunMixin(DistMixin):
             position. Confined (or all if conlen=False) markers are shown
             with shades of red where color separates subsequent
             trajectories.
+        markersize : int, optional
+            Marker size on plot.
         axes : :obj:`~matplotlib.axes.Axes`, optional
             The axes where figure is plotted or otherwise new figure is created.
         cax : :obj:`~matplotlib.axes.Axes`, optional
@@ -1348,7 +1351,8 @@ class RunMixin(DistMixin):
 
         a5plt.poincare(x, y, ids, connlen=connlen, xlim=xlim, ylim=ylim,
                        xlabel=xlabel, ylabel=ylabel, clabel=clabel,
-                       axesequal=axesequal, axes=axes, cax=cax)
+                       markersize=markersize, axesequal=axesequal, axes=axes,
+                       cax=cax)
 
     def plotwall_loadvsarea(self, axes=None):
         """Plot histogram showing area affected by at least a given load.
@@ -1430,10 +1434,10 @@ class RunMixin(DistMixin):
         axes.set_xticks([0, 90, 180, 270, 360])
         axes.set_yticks([-180, -90, 0, 90, 180])
 
-    def plotwall_3dstill(self, wallmesh=None, points=None, orbit=None,
-                         data=None, log=False, cpos=None, cfoc=None, cang=None,
-                         p_ids=None, w_indices=None, axes=None, cax=None,
-                         **kwargs):
+    def plotwall_3dstill(
+            self, wallmesh=None, points=None, orbit=None, data=None, log=False,
+            clim=None, cpos=None, cfoc=None, cang=None, p_ids=None,
+            w_indices=None, axes=None, cax=None, **kwargs):
         """Take a still shot of the mesh and display it using matplotlib
         backend.
 
@@ -1455,6 +1459,10 @@ class RunMixin(DistMixin):
             ID of a marker whose orbit is plotted.
         data : str, optional
             Name of the cell data in the wall mesh that is shown in color.
+        log : bool, optional
+            Color range is logarithmic if True.
+        clim : [float, float], optional
+            Color [min, max] limits.
         cpos : array_like, optional
             Camera position coordinates [x, y, z].
         cfoc : array_like, optional
@@ -1486,11 +1494,11 @@ class RunMixin(DistMixin):
         if cang is None: cang = cang0
 
         a5plt.still(wallmesh, points=points, data=data, orbit=orbit, log=log,
-                    cpos=cpos, cfoc=cfoc, cang=cang, axes=axes, cax=cax,
-                    **kwargs)
+                    clim=clim, cpos=cpos, cfoc=cfoc, cang=cang, axes=axes,
+                    cax=cax, **kwargs)
 
     def plotwall_3dinteractive(self, wallmesh=None, *args, points=None,
-                               orbit=None, data=None, log=False,
+                               orbit=None, data=None, log=False, clim=None,
                                cpos=None, cfoc=None, cang=None,
                                p_ids=None, w_indices=None, **kwargs):
         """Open vtk window to display interactive view of the wall mesh.
@@ -1512,6 +1520,10 @@ class RunMixin(DistMixin):
             ID of a marker whose orbit is plotted.
         data : str, optional
             Name of the cell data in the wall mesh that is shown in color.
+        log : bool, optional
+            Color range is logarithmic if True.
+        clim : [float, float], optional
+            Color [min, max] limits.
         cpos : array_like, optional
             Camera position coordinates [x, y, z].
         cfoc : array_like, optional
@@ -1539,5 +1551,5 @@ class RunMixin(DistMixin):
         if cang is None: cang = cang0
 
         a5plt.interactive(wallmesh, *args, points=points, data=data,
-                          orbit=orbit, log=log,
+                          orbit=orbit, log=log, clim=clim,
                           cpos=cpos, cfoc=cfoc, cang=cang, **kwargs)

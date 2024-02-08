@@ -16,6 +16,7 @@ from .coreio.fileapi import add_group
 from .coreio.treedata import DataGroup
 
 import a5py.physlib as physlib
+from a5py.routines.plotting import pv
 
 class wall_2D(DataGroup):
     """Contour in Rz-plane that represents an axisymmetric wall.
@@ -122,6 +123,27 @@ class wall_2D(DataGroup):
             lines[i, 1, 1] = z[i+1]
         return lines
 
+    def getwalloutline(self, phigrid):
+        """Return minimum and maximum wall R-coordinates as a function of phi.
+
+        Parameters
+        ----------
+        phigrid : array_like
+            Toroidal coordinates.
+
+        Returns
+        -------
+        rmin : array_like, (nphi,)
+            Minimum R-coordinate at each toroidal angle.
+        rmax : array_like, (nphi,)
+            Maximum R-coordinate at each toroidal angle.
+        """
+        w = self.read()
+        rmin = np.amax(w["r"]) * np.ones(phigrid.shape).ravel()
+        rmax = np.amin(w["r"]) * np.ones(phigrid.shape).ravel()
+
+        return rmin, rmax
+
     @staticmethod
     def write_hdf5_dummy(fn):
         """Write dummy data that has correct format and is valid, but can be
@@ -220,6 +242,44 @@ class wall_3D(DataGroup):
             self.read()
         return self.number_of_elements
 
+    def getwalloutline(self, z=0):
+        """Return minimum and maximum wall R-coordinates as a function of phi
+        at the given toroidal plane.
+
+        Parameters
+        ----------
+        phigrid : array_like
+            Toroidal coordinates.
+
+        Returns
+        -------
+        rmin : array_like, (nphi,)
+            Minimum R-coordinate at each toroidal angle.
+        rmax : array_like, (nphi,)
+            Maximum R-coordinate at each toroidal angle.
+        """
+        s1 = self.tomesh()
+        xmin = np.amin(s1.points[:,0])
+        xmax = np.amax(s1.points[:,0])
+        ymin = np.amin(s1.points[:,1])
+        ymax = np.amax(s1.points[:,1])
+        r0 = 0.0
+        z0 = 0.0
+        dx = xmax - xmin
+        dy = ymax - ymin
+
+        s2 = pv.Plane(center=(0,0,z), direction=(0,0,1),
+                      i_size=dx*1.1, j_size=dy*1.1,
+                      i_resolution=1, j_resolution=1).triangulate()
+
+        cut,_,_ = s2.intersection(s1, split_first=False, split_second=False)
+        i0 = cut.lines[1::3]
+        i1 = cut.lines[2::3]
+        lines = np.array( [
+            ( (cut.points[i0[i],0], cut.points[i0[i],1]),
+              (cut.points[i1[i],0], cut.points[i1[i],1]) ) \
+            for i in range(i0.size) ] )
+        return lines
 
     def noderepresentation(self, w_indices=None):
         """
@@ -398,7 +458,6 @@ class wall_3D(DataGroup):
         lines : array_like (n,2,2)
             Line segments [[[r1,z1], [r2,z2]], ...] that form the cross section.
         """
-        import pyvista as pv
         phi = phi.to("rad").v
         s1 = self.tomesh()
         rmin = np.amin(np.sqrt( s1.points[:,0]**2 + s1.points[:,1]**2 ))
@@ -412,7 +471,7 @@ class wall_3D(DataGroup):
 
         x, y, z = physlib.pol2cart(r0, phi, z0)
         s2 = pv.Plane(center=(x,y,z), direction=(-np.sin(phi),np.cos(phi),0),
-                      i_size=dr*1.1, j_size=dz*1.1,
+                      i_size=dz*1.1, j_size=dr*1.1,
                       i_resolution=1, j_resolution=1).triangulate()
 
         cut,_,_ = s2.intersection(s1, split_first=False, split_second=False)
@@ -615,14 +674,10 @@ class wall_3D(DataGroup):
             g = add_group(f, parent, group, desc=desc)
             gname = g.name.split("/")[-1]
 
-            g.create_dataset('x1x2x3',    (nelements,3), data=x1x2x3,
-                             dtype='f8')
-            g.create_dataset('y1y2y3',    (nelements,3), data=y1y2y3,
-                             dtype='f8')
-            g.create_dataset('z1z2z3',    (nelements,3), data=z1z2z3,
-                             dtype='f8')
-            g.create_dataset('nelements', (1,1),         data=nelements,
-                             dtype='i4')
+            g.create_dataset('nelements', (1,1), data=nelements, dtype='i4')
+            g.create_dataset('x1x2x3', (nelements,3), data=x1x2x3, dtype='f8')
+            g.create_dataset('y1y2y3', (nelements,3), data=y1y2y3, dtype='f8')
+            g.create_dataset('z1z2z3', (nelements,3), data=z1z2z3, dtype='f8')
 
             fl = g.create_dataset('flag', (nelements,1), data=flag, dtype='i4')
             if flagIdList is not None and flagIdStrings is not None:
@@ -709,7 +764,7 @@ class wall_3D(DataGroup):
                 p1p2p3[(i-1)*2*n + 2*(j-1) + 1,:] = [ pv[i-1], pv[i-1], pv[i] ]
                 z1z2z3[(i-1)*2*n + 2*(j-1) + 1,:] = [ z[j],    z[j-1],  z[j-1] ]
 
-        x1x2x3,y1y2y3 = pol2cart(r1r2r3, p1p2p3)
+        x1x2x3, y1y2y3 = pol2cart(r1r2r3, p1p2p3)
 
         return {"nelements" : 2*n*nphi, "x1x2x3" : x1x2x3,
                 "y1y2y3" : y1y2y3, "z1z2z3" : z1z2z3}
