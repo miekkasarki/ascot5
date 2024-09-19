@@ -31,6 +31,8 @@ jobs:
         with:
           miniforge-version: latest
           activate-environment: ascot-dev
+          auto-update-conda: true
+          use-only-tar-bz2: true
 
       - uses: actions/checkout@v4
 
