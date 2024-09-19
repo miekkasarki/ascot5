@@ -16,11 +16,11 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           miniforge-version: latest
-          activate-environment: anaconda-client-env
+          activate-environment: ascot-dev
           auto-update-conda: true
           python-version: "3.10"
 
-      - name: Get Date
+      - name: Current Date
         id: get-date
         run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
 
@@ -31,16 +31,18 @@ jobs:
           key:
             conda-${{ runner.os }}--${{ runner.arch }}--${{
             steps.get-date.outputs.today }}-${{
-            hashFiles('etc/example-environment-caching.yml') }}-${{
+            hashFiles('environment-dev.yaml') }}-${{
             env.CACHE_NUMBER}}
         env:
+          # Increase to reset cache. Reset to zero when environment-dev.yaml
+          # is updated
           CACHE_NUMBER: 0
        id: cache
 
      - name: Update environment
        run:
-         mamba env update -n anaconda-client-env -f
-         etc/example-environment-caching.yml
+         mamba env update -n ascot-dev -f
+         environment-dev.yaml
        if: steps.cache.outputs.cache-hit != 'true'
 
       - name: Make ascot5_main with MPI
