@@ -12,13 +12,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - name: Setup Miniforge
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
+          activate-environment: anaconda-client-env
           auto-update-conda: true
           python-version: "3.10"
-          environment-file: environment-dev.yaml
-          activate-environment: ascot-dev
-          auto-activate-base: false
+
+      - name: Get Date
+        id: get-date
+        run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Cache Conda env
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CONDA }}/envs
+          key:
+            conda-${{ runner.os }}--${{ runner.arch }}--${{
+            steps.get-date.outputs.today }}-${{
+            hashFiles('etc/example-environment-caching.yml') }}-${{
+            env.CACHE_NUMBER}}
+        env:
+          CACHE_NUMBER: 0
+       id: cache
+
+     - name: Update environment
+       run:
+         mamba env update -n anaconda-client-env -f
+         etc/example-environment-caching.yml
+       if: steps.cache.outputs.cache-hit != 'true'
 
       - name: Make ascot5_main with MPI
         run: make ascot5_main MPI=1 -j
