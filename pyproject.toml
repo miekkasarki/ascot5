@@ -36,6 +36,9 @@ include = [
     'a5py.*',
 ]
 
+[tool.setuptools.package-data]
+"a5py" = ["build/ascot5_main", "build/bbnbi5", "build/libascot.so"]
+
 [project.urls]
 Homepage      = "https://github.com/ascot4fusion/ascot5"
 Documentation = "https://ascot4fusion.github.io/ascot5/"
